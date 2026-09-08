@@ -24,7 +24,7 @@ jobs:
         with:
           node-version: 20
 
-      - name: Sanitize Dependencies & Fix Autolinking
+      - name: Sanitize Dependencies
         run: |
           node -e '
             const fs = require("fs");
@@ -58,20 +58,22 @@ jobs:
       - name: Install Dependencies
         run: |
           npm install --legacy-peer-deps
-          npm install -g expo-cli
 
-      - name: Run Autolinking Diagnostics & Prebuild
+      - name: Prebuild Android
+        run: CI=1 npx expo prebuild --platform android --clean --no-install
+
+      - name: Pre-bundle Assets (Bypass Gradle Node Crash)
         run: |
-          npx expo-modules-autolinking resolve -p android || true
-          CI=1 npx expo prebuild --platform android --clean --no-install
+          mkdir -p android/app/src/main/assets
+          npx expo export --platform android --output-dir android/app/src/main/assets || true
 
       - name: Build Android Release APK
         run: |
           cd android
-          echo "org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1024m" >> gradle.properties
+          echo "org.gradle.jvmargs=-Xmx6144m -XX:MaxMetaspaceSize=1024m" >> gradle.properties
           echo "reactNativeArchitectures=arm64-v8a" >> gradle.properties
           echo "newArchEnabled=false" >> gradle.properties
-          echo "expo.useLegacyAutolinking=true" >> gradle.properties
+          echo "expo.useLegacyAutolinking=false" >> gradle.properties
           chmod +x gradlew
           ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a -x lint -x test --no-daemon
 
