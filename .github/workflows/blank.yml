@@ -30,8 +30,6 @@ jobs:
             const fs = require("fs");
             if (!fs.existsSync("package.json")) process.exit(0);
             const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
-            
-            // Clean workspace packages
             const clean = (deps) => {
               if (!deps) return;
               for (const k of Object.keys(deps)) {
@@ -44,8 +42,6 @@ jobs:
             };
             clean(pkg.dependencies);
             clean(pkg.devDependencies);
-
-            // Fix main entry for Expo Router
             pkg.main = "expo-router/entry";
             fs.writeFileSync("package.json", JSON.stringify(pkg, null, 2));
           '
@@ -60,17 +56,18 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install Dependencies
+      - name: Fix Expo Package Version Mismatch
         run: |
           npm install --legacy-peer-deps
+          npx expo install --fix || true
 
-      - name: Prebuild Android
+      - name: Prebuild Clean Android
         run: CI=1 npx expo prebuild --platform android --clean --no-install
 
       - name: Build Android Release APK
         run: |
           cd android
-          echo "org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1024m" >> gradle.properties
+          echo "org.gradle.jvmargs=-Xmx6144m -XX:MaxMetaspaceSize=1024m" >> gradle.properties
           echo "reactNativeArchitectures=arm64-v8a" >> gradle.properties
           echo "newArchEnabled=false" >> gradle.properties
           chmod +x gradlew
