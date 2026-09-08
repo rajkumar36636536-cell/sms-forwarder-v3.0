@@ -58,24 +58,30 @@ jobs:
       - name: Install Dependencies
         run: |
           npm install --legacy-peer-deps
+          npm install --save-dev @react-native/babel-preset @react-native-community/cli --legacy-peer-deps
 
       - name: Prebuild Android
         run: CI=1 npx expo prebuild --platform android --clean --no-install
 
-      - name: Pre-bundle Assets (Bypass Gradle Node Crash)
+      - name: Manually Generate Release Bundle
         run: |
           mkdir -p android/app/src/main/assets
-          npx expo export --platform android --output-dir android/app/src/main/assets || true
+          mkdir -p android/app/src/main/res
+          npx @react-native-community/cli bundle \
+            --platform android \
+            --dev false \
+            --entry-file node_modules/expo/AppEntry.js \
+            --bundle-output android/app/src/main/assets/index.android.bundle \
+            --assets-dest android/app/src/main/res || true
 
       - name: Build Android Release APK
         run: |
           cd android
-          echo "org.gradle.jvmargs=-Xmx6144m -XX:MaxMetaspaceSize=1024m" >> gradle.properties
+          echo "org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1024m" >> gradle.properties
           echo "reactNativeArchitectures=arm64-v8a" >> gradle.properties
           echo "newArchEnabled=false" >> gradle.properties
-          echo "expo.useLegacyAutolinking=false" >> gradle.properties
           chmod +x gradlew
-          ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a -x lint -x test --no-daemon
+          ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a -PbundleInRelease=false -x bundleReleaseJsAndAssets -x lint -x test --no-daemon
 
       - name: Upload Finished APK
         uses: actions/upload-artifact@v4
